@@ -1,0 +1,58 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.mongoExpress.fullnameOverride }}
+  labels:
+    app: {{ .Values.mongoExpress.nameOverride }}
+spec:
+  replicas: {{ .Values.mongoExpress.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ .Values.mongoExpress.nameOverride }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.mongoExpress.nameOverride }}
+    spec:
+      containers:
+        - name: mongo-express
+          image: "{{ .Values.mongoExpress.image.repository }}:{{ .Values.mongoExpress.image.tag }}"
+          imagePullPolicy: {{ .Values.mongoExpress.image.pullPolicy }}
+          ports:
+            - containerPort: {{ .Values.mongoExpress.service.port }}
+          env:
+            - name: ME_CONFIG_MONGODB_ADMINUSERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.mongodb.secret.name }}
+                  key: mongo-root-username
+            - name: ME_CONFIG_MONGODB_ADMINPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.mongodb.secret.name }}
+                  key: mongo-root-password
+            - name: ME_CONFIG_MONGODB_SERVER
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ .Values.mongodb.configMap.name }}
+                  key: database_url
+          resources:
+            limits:
+              memory: {{ .Values.mongoExpress.resources.limits.memory }}
+              cpu: {{ .Values.mongoExpress.resources.limits.cpu }}
+            requests:
+              memory: {{ .Values.mongoExpress.resources.requests.memory }}
+              cpu: {{ .Values.mongoExpress.resources.requests.cpu }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.mongoExpress.service.name }}
+spec:
+  type: {{ .Values.mongoExpress.service.type }}
+  selector:
+    app: {{ .Values.mongoExpress.nameOverride }}
+  ports:
+    - protocol: TCP
+      port: {{ .Values.mongoExpress.service.port }}
+      targetPort: {{ .Values.mongoExpress.service.port }}
