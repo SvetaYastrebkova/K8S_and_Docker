@@ -1,0 +1,76 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.mongodb.fullnameOverride }}
+  labels:
+    app: {{ .Values.mongodb.nameOverride }}
+spec:
+  replicas: {{ .Values.mongodb.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ .Values.mongodb.nameOverride }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.mongodb.nameOverride }}
+    spec:
+      containers:
+        - name: mongodb
+          image: "{{ .Values.mongodb.image.repository }}:{{ .Values.mongodb.image.tag }}"
+          imagePullPolicy: {{ .Values.mongodb.image.pullPolicy }}
+          ports:
+            - containerPort: {{ .Values.mongodb.service.port }}
+          volumeMounts:
+          - name: secret-volume
+            mountPath: /etc/secret-volume
+            readOnly: true
+          - name: mongodb-persistent-storage
+            mountPath: /data/db
+          env:
+            - name: MONGO_INITDB_ROOT_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: mongodb-secret
+                  key: mongo-root-username
+            - name: MONGO_INITDB_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mongodb-secret
+                  key: mongo-root-password
+          resources:
+            limits:
+              memory: {{ .Values.mongodb.resources.limits.memory }}
+              cpu: {{ .Values.mongodb.resources.limits.cpu }}
+            requests:
+              memory: {{ .Values.mongodb.resources.requests.memory }}
+              cpu: {{ .Values.mongodb.resources.requests.cpu }}
+          livenessProbe:
+            tcpSocket:
+              port: 27017
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            tcpSocket:
+              port: 27017
+            initialDelaySeconds: 5
+            periodSeconds: 10
+      volumes:
+      - name: secret-volume
+        secret:
+          secretName: mongodb-secret
+      - name: mongodb-persistent-storage
+        persistentVolumeClaim:
+          claimName: mongodb-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.mongodb.service.name }}
+spec:
+  type: {{ .Values.mongodb.service.type }}
+  selector:
+    app: {{ .Values.mongodb.nameOverride }}
+  ports:
+    - protocol: TCP
+      port: {{ .Values.mongodb.service.port }}
+      targetPort: {{ .Values.mongodb.service.port }}
